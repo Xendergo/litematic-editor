@@ -9,6 +9,8 @@ pub enum LitematicParseError {
     UnsupportedVersionNumber(i32),
     #[error("{0}")]
     NonexistentTag(Box<NbtStructureError>),
+    #[error("The tag {0} is the wrong type")]
+    WrongTag(String),
     #[error("There was an error parsing a region: {0}")]
     RegionParseError(#[from] RegionParseError),
     #[error("An unknown error occured")]

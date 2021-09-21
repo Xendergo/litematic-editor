@@ -40,7 +40,13 @@ impl Schematic {
     }
 
     fn parse_regions(data: &NbtCompound) -> Result<HashMap<String, Region>, LitematicParseError> {
-        let regions_nbt = data.get::<_, &NbtCompound>("Regions")?.clone();
+        let regions_nbt =
+            if let NbtTag::Compound(regions_nbt) = data.get::<_, &NbtTag>("Regions")?.clone() {
+                regions_nbt
+            } else {
+                return Err(LitematicParseError::WrongTag("Regions".to_string()));
+            };
+
         let regions = regions_nbt.into_inner();
 
         let mut regions_parsed = HashMap::new();
@@ -48,6 +54,8 @@ impl Schematic {
         for region_unknown in regions {
             if let NbtTag::Compound(region) = region_unknown.1 {
                 regions_parsed.insert(region_unknown.0, Region::new_from_nbt(region)?);
+            } else {
+                return Err(LitematicParseError::WrongTag(region_unknown.0));
             }
         }
 

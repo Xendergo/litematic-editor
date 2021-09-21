@@ -5,11 +5,21 @@ use quartz_nbt::{NbtCompound, NbtTag};
 use crate::BlockStateParseError;
 
 pub struct BlockState {
-    pub name: String,
+    pub block: String,
     pub properties: HashMap<String, String>,
 }
 
 impl BlockState {
+    pub fn new(block: &str, properties: Option<HashMap<String, String>>) -> BlockState {
+        BlockState {
+            block: block.to_string(),
+            properties: match properties {
+                Some(v) => v,
+                None => HashMap::new(),
+            },
+        }
+    }
+
     pub(crate) fn new_from_nbt(data: &NbtCompound) -> Result<BlockState, BlockStateParseError> {
         let properties_nbt = data.get::<_, &NbtTag>("Properties")?.clone();
         let properties_compound = if let NbtTag::Compound(properties_compound) = properties_nbt {
@@ -27,8 +37,22 @@ impl BlockState {
         }
 
         Ok(BlockState {
-            name: data.get::<_, &String>("Name")?.clone(),
+            block: data.get::<_, &String>("Name")?.clone(),
             properties: parsed_properties,
         })
+    }
+
+    pub(crate) fn to_nbt(&self) -> NbtCompound {
+        let mut compound = NbtCompound::new();
+        let mut properties = NbtCompound::new();
+
+        for (name, value) in self.properties.iter() {
+            properties.insert(name, value);
+        }
+
+        compound.insert("Name", self.block.clone());
+        compound.insert("Properties", properties);
+
+        compound
     }
 }
