@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use quartz_nbt::{NbtCompound, NbtTag};
+use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
-use crate::{BlockState, IVector3, RegionParseError};
+use crate::{BlockState, BlockStateParseError, IVector3, RegionParseError};
 
 pub struct Region {
     pub position: IVector3,
@@ -11,6 +11,8 @@ pub struct Region {
 }
 
 impl Region {
+    // https://github.com/maruohon/litematica/issues/53#issuecomment-520281566
+
     pub(crate) fn new_from_nbt(data: NbtCompound) -> Result<Region, RegionParseError> {
         let palette =
             if let NbtTag::List(palette_list) = data.get::<_, &NbtTag>("BlockStatePalette")? {
@@ -19,23 +21,8 @@ impl Region {
                 return Err(RegionParseError::WrongTag("BlockStatePalette".to_string()));
             };
 
-        let mut parsed_palette = Vec::new();
+        let parsed_palette = Region::parse_palette(palette)?;
 
-        for state_unknown in palette {
-            if let NbtTag::Compound(state) = state_unknown {
-                parsed_palette.push(BlockState::new_from_nbt(state)?)
-            }
-        }
-
-        let size_nbt = data.get::<_, &NbtCompound>("Size")?;
-
-        let size = IVector3::new(
-            size_nbt.get::<_, i32>("x")?,
-            size_nbt.get::<_, i32>("y")?,
-            size_nbt.get::<_, i32>("z")?,
-        );
-
-        // https://github.com/maruohon/litematica/issues/53#issuecomment-520281566
         let blocks_long_array =
             if let NbtTag::LongArray(array) = data.get::<_, &NbtTag>("BlockStates")? {
                 array
@@ -43,47 +30,79 @@ impl Region {
                 return Err(RegionParseError::WrongTag("BlockStates".to_string()));
             };
 
-        // Calculate number of bits used per block
-        let bits = (usize::BITS - (parsed_palette.len() - 1).leading_zeros()).max(2) as u64;
+        Ok(Region {
+            position: IVector3::from_nbt(&data, "Position")?,
+            blocks: Region::unpack_packed_array(
+                blocks_long_array,
+                Region::calculate_bits(&parsed_palette),
+                IVector3::from_nbt(&data, "Size")?,
+            ),
+            block_state_palette: parsed_palette,
+        })
+    }
 
-        let blocks = blocks_long_array.len() as u64 * 64 / bits;
+    fn calculate_bits(parsed_palette: &Vec<BlockState>) -> u64 {
+        (usize::BITS - (parsed_palette.len() - 1).leading_zeros()).max(2) as u64
+    }
+
+    fn parse_palette(palette: &NbtList) -> Result<Vec<BlockState>, BlockStateParseError> {
+        let mut parsed_palette = Vec::new();
+
+        for state_unknown in palette {
+            if let NbtTag::Compound(state) = state_unknown {
+                parsed_palette.push(BlockState::new_from_nbt(&state)?)
+            }
+        }
+
+        Ok(parsed_palette)
+    }
+
+    fn unpack_packed_array(
+        array: &[i64],
+        bits_per_position: u64,
+        region_size: IVector3,
+    ) -> HashMap<IVector3, usize> {
+        let blocks = array.len() as u64 * 64 / bits_per_position;
 
         let mut unpacked = HashMap::new();
 
         for block in 0..blocks {
-            let pos = block * bits;
-
-            let pos_in_long = pos % 64;
-
-            let index = (pos - pos_in_long) as usize;
-
-            let bitmap = ((1_i64 << bits) - 1_i64).rotate_left(pos_in_long as u32);
-
-            let mut value = blocks_long_array[index] & bitmap >> pos_in_long;
-
-            if index < blocks_long_array.len() - 1 {
-                value |= blocks_long_array[index + 1] & bitmap << (64 - pos_in_long);
-            }
-
-            let y = block / (size.x * size.z) as u64;
-            let z = (block % (size.x * size.z) as u64) / size.x as u64;
-            let x = (block % (size.x * size.z) as u64) % size.x as u64;
-
-            unpacked.insert(IVector3::new(x as i32, y as i32, z as i32), value as usize);
+            unpacked.insert(
+                Region::index_to_coords(region_size, block),
+                Region::get_index_out_of_packed_array(array, block, bits_per_position),
+            );
         }
 
-        let position_nbt = data.get::<_, &NbtCompound>("Position")?;
+        unpacked
+    }
 
-        let position = IVector3::new(
-            position_nbt.get::<_, i32>("x")?,
-            position_nbt.get::<_, i32>("y")?,
-            position_nbt.get::<_, i32>("z")?,
-        );
+    fn get_index_out_of_packed_array(
+        array: &[i64],
+        position_in_array: u64,
+        bits_per_position: u64,
+    ) -> usize {
+        let pos = position_in_array * bits_per_position;
 
-        Ok(Region {
-            position: position,
-            block_state_palette: parsed_palette,
-            blocks: unpacked,
-        })
+        let pos_in_long = pos % 64;
+
+        let index = (pos - pos_in_long) as usize;
+
+        let bitmap = ((1_i64 << bits_per_position) - 1_i64).rotate_left(pos_in_long as u32);
+
+        let mut value = array[index] & bitmap >> pos_in_long;
+
+        if index < array.len() - 1 {
+            value |= array[index + 1] & bitmap << (64 - pos_in_long);
+        }
+
+        value as usize
+    }
+
+    fn index_to_coords(size: IVector3, index: u64) -> IVector3 {
+        let y = index / (size.x * size.z) as u64;
+        let z = (index % (size.x * size.z) as u64) / size.x as u64;
+        let x = (index % (size.x * size.z) as u64) % size.x as u64;
+
+        IVector3::new(x as i32, y as i32, z as i32)
     }
 }
