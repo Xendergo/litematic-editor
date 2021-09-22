@@ -4,6 +4,7 @@ use quartz_nbt::{NbtCompound, NbtTag};
 
 use crate::BlockStateParseError;
 
+#[derive(Debug)]
 pub struct BlockState {
     pub block: String,
     pub properties: HashMap<String, String>,

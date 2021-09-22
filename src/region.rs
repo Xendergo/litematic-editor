@@ -71,11 +71,13 @@ impl Region {
         let mut unpacked = HashMap::new();
 
         for block in 0..blocks {
+            let coords = match Region::index_to_coords(region_size, block) {
+                Some(v) => v,
+                None => unreachable!(),
+            };
+
             unpacked.insert(
-                match Region::index_to_coords(region_size, block) {
-                    Some(v) => v,
-                    None => unreachable!(),
-                },
+                coords,
                 Region::get_index_out_of_packed_array(array, block, bits_per_position),
             );
         }
@@ -83,7 +85,7 @@ impl Region {
         unpacked
     }
 
-    const fn get_index_out_of_packed_array(
+    fn get_index_out_of_packed_array(
         array: &[i64],
         position_in_array: u64,
         bits_per_position: u64,
@@ -92,14 +94,17 @@ impl Region {
 
         let pos_in_long = pos % 64;
 
-        let index = (pos - pos_in_long) as usize;
+        let index = pos as usize / 64;
 
         let bitmap = ((1_i64 << bits_per_position) - 1_i64).rotate_left(pos_in_long as u32);
 
-        let mut value = array[index] & bitmap >> pos_in_long;
+        let mut value = (array[index] & bitmap) >> pos_in_long;
 
         if index < array.len() - 1 {
-            value |= array[index + 1] & bitmap << (64 - pos_in_long);
+            let amt_to_shift = 64 - pos_in_long as u32;
+            value |= (array[index + 1] & bitmap)
+                .checked_shl(amt_to_shift)
+                .unwrap_or(0);
         }
 
         value as usize
@@ -152,11 +157,11 @@ mod tests {
             panic!("parse_palette errored when it shouldn't have")
         }
 
-        let list2 = NbtList::new();
+        let mut list2 = NbtList::new();
 
-        list.push(1);
-        list.push(2);
-        list.push(3);
+        list2.push(1);
+        list2.push(2);
+        list2.push(3);
 
         let parsed2 = Region::parse_palette(&list2);
 
@@ -178,19 +183,22 @@ mod tests {
             Some(IVector3::new(1, 2, 3))
         );
 
-        assert_eq!(
-            Region::index_to_coords(IVector3::new(0, 0, 0), 0),
-            Some(IVector3::new(0, 0, 0))
-        );
-
+        assert_eq!(Region::index_to_coords(IVector3::new(0, 0, 0), 0), None);
         assert_eq!(Region::index_to_coords(IVector3::new(0, 0, 0), 1), None);
 
         assert_eq!(
-            Region::index_to_coords(
-                IVector3::new(1976356, 27939740, 76356758),
-                146682748097123140
-            ),
-            Some(IVector3::new(1286, 972, 19791))
+            Region::index_to_coords(IVector3::new(4, 6, 5), 54),
+            Some(IVector3::new(2, 2, 3))
+        );
+
+        assert_eq!(
+            Region::index_to_coords(IVector3::new(2, 3, 3), 1),
+            Some(IVector3::new(1, 0, 0))
+        );
+
+        assert_eq!(
+            Region::index_to_coords(IVector3::new(2, 3, 3), 9),
+            Some(IVector3::new(1, 1, 1))
         );
     }
 
@@ -199,10 +207,10 @@ mod tests {
         let array: &[i64] = &[0x0123456789abcdef, 0x1032547698badcfe];
         let bits = 7;
 
-        assert_eq!(Region::get_index_out_of_packed_array(array, 0, bits), 35);
-        assert_eq!(Region::get_index_out_of_packed_array(array, 1, bits), 10112);
-        assert_eq!(Region::get_index_out_of_packed_array(array, 10, bits), 4672);
-        assert_eq!(Region::get_index_out_of_packed_array(array, 9, bits), 68);
+        assert_eq!(Region::get_index_out_of_packed_array(array, 0, bits), 111);
+        assert_eq!(Region::get_index_out_of_packed_array(array, 1, bits), 27);
+        assert_eq!(Region::get_index_out_of_packed_array(array, 10, bits), 115);
+        assert_eq!(Region::get_index_out_of_packed_array(array, 9, bits), 124);
     }
 
     #[test]
@@ -211,10 +219,12 @@ mod tests {
 
         let unpacked = Region::unpack_packed_array(array, 7, IVector3::new(2, 3, 3));
 
-        assert_eq!(unpacked.get(&IVector3::new(0, 0, 0)), Some(&35));
-        assert_eq!(unpacked.get(&IVector3::new(1, 0, 0)), Some(&10112));
-        assert_eq!(unpacked.get(&IVector3::new(1, 1, 1)), Some(&4672));
-        assert_eq!(unpacked.get(&IVector3::new(1, 1, 0)), Some(&68));
+        println!("{:?}", unpacked);
+
+        assert_eq!(unpacked.get(&IVector3::new(0, 0, 0)), Some(&111));
+        assert_eq!(unpacked.get(&IVector3::new(1, 0, 0)), Some(&27));
+        assert_eq!(unpacked.get(&IVector3::new(0, 1, 2)), Some(&115));
+        assert_eq!(unpacked.get(&IVector3::new(1, 1, 1)), Some(&124));
     }
 
     #[test]
@@ -236,6 +246,7 @@ mod tests {
         );
 
         root.insert("Size", IVector3::new(4, 4, 4).to_nbt());
+        root.insert("Position", IVector3::new(0, 0, 0).to_nbt());
 
         Region::new_from_nbt(root).unwrap();
     }
