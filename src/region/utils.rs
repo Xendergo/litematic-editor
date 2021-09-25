@@ -2,90 +2,20 @@ use std::collections::HashMap;
 
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
-use crate::{vector::Volume, BlockState, BlockStateParseError, IVector3, RegionParseError};
-
-pub struct Region {
-    pub position: IVector3,
-    block_state_palette: Vec<BlockState>,
-    blocks: HashMap<IVector3, usize>,
-    entities: Option<NbtList>,
-    pending_block_ticks: Option<NbtList>,
-    pending_fluid_ticks: Option<NbtList>,
-    tile_entities: Option<NbtList>,
-}
+use crate::{vector::Volume, BlockState, BlockStateParseError, IVector3, Region};
 
 impl Region {
-    // https://github.com/maruohon/litematica/issues/53#issuecomment-520281566
-
-    pub(crate) fn new_from_nbt(data: NbtCompound) -> Result<Region, RegionParseError> {
-        let palette =
-            if let NbtTag::List(palette_list) = data.get::<_, &NbtTag>("BlockStatePalette")? {
-                palette_list
-            } else {
-                return Err(RegionParseError::WrongTag("BlockStatePalette".to_string()));
-            };
-
-        let parsed_palette = Region::parse_palette(palette)?;
-
-        let blocks_long_array =
-            if let NbtTag::LongArray(array) = data.get::<_, &NbtTag>("BlockStates")? {
-                array
-            } else {
-                return Err(RegionParseError::WrongTag("BlockStates".to_string()));
-            };
-
-        Ok(Region {
-            position: IVector3::from_nbt(&data, "Position")?,
-            blocks: Region::unpack_packed_array(
-                blocks_long_array,
-                Region::calculate_bits(parsed_palette.len()),
-                IVector3::from_nbt(&data, "Size")?,
-            ),
-            block_state_palette: parsed_palette,
-            entities: data.get::<_, &NbtList>("Entities").ok().map(|v| v.clone()),
-            pending_block_ticks: data
-                .get::<_, &NbtList>("PendingBlockTicks")
-                .ok()
-                .map(|v| v.clone()),
-            pending_fluid_ticks: data
-                .get::<_, &NbtList>("PendingFluidTicks")
-                .ok()
-                .map(|v| v.clone()),
-            tile_entities: data
-                .get::<_, &NbtList>("TileEntities")
-                .ok()
-                .map(|v| v.clone()),
-        })
-    }
-
-    pub(crate) fn to_nbt(&self) -> (NbtCompound, Volume) {
-        let mut out = NbtCompound::new();
-
-        let palette = self.generate_palette_nbt();
-
-        out.insert("BlockStatePalette", palette);
-
-        self.write_misc_data(&mut out);
-
-        let volume = self.volume();
-
-        out.insert("Position", volume.origin());
-        out.insert("Size", volume.size());
-
-        out.insert("BlockStates", self.generate_block_states_nbt(volume));
-
-        (out, volume)
-    }
-
-    fn calculate_bits(parsed_palette_length: usize) -> u64 {
+    pub(super) fn calculate_bits(parsed_palette_length: usize) -> u64 {
         (usize::BITS - (parsed_palette_length - 1).leading_zeros()).max(2) as u64
     }
 
-    fn calculate_amt_of_longs(region_volume: i32, bits: u64) -> i32 {
+    pub(super) fn calculate_amt_of_longs(region_volume: i32, bits: u64) -> i32 {
         ((region_volume * bits as i32) + (region_volume * bits as i32 % 64)) / 64
     }
 
-    fn parse_palette(palette: &NbtList) -> Result<Vec<BlockState>, BlockStateParseError> {
+    pub(super) fn parse_palette(
+        palette: &NbtList,
+    ) -> Result<Vec<BlockState>, BlockStateParseError> {
         let mut parsed_palette = Vec::new();
 
         for state_unknown in palette {
@@ -101,7 +31,7 @@ impl Region {
         Ok(parsed_palette)
     }
 
-    fn unpack_packed_array(
+    pub(super) fn unpack_packed_array(
         array: &[i64],
         bits_per_position: u64,
         region_size: IVector3,
@@ -125,7 +55,7 @@ impl Region {
         unpacked
     }
 
-    fn get_index_out_of_packed_array(
+    pub(super) fn get_index_out_of_packed_array(
         array: &[i64],
         position_in_array: u64,
         bits_per_position: u64,
@@ -149,7 +79,7 @@ impl Region {
         value as usize
     }
 
-    fn set_index_in_packed_array(
+    pub(super) fn set_index_in_packed_array(
         array: &mut [i64],
         value: i64,
         position_in_array: u64,
@@ -177,7 +107,7 @@ impl Region {
         }
     }
 
-    fn index_to_coords(size: IVector3, index: u64) -> Option<IVector3> {
+    pub(super) fn index_to_coords(size: IVector3, index: u64) -> Option<IVector3> {
         if size.volume() as u64 <= index {
             return None;
         }
@@ -189,7 +119,7 @@ impl Region {
         Some(IVector3::new(x as i32, y as i32, z as i32))
     }
 
-    fn coords_to_index(size: IVector3, pos: IVector3) -> Option<u64> {
+    pub(super) fn coords_to_index(size: IVector3, pos: IVector3) -> Option<u64> {
         if !pos.fits_in_positive(IVector3::new(0, 0, 0)) || !pos.fits_in_negative(size) {
             return None;
         }
@@ -197,7 +127,7 @@ impl Region {
         Some((pos.y * size.x * size.y + pos.z * size.x + pos.x) as u64)
     }
 
-    fn write_misc_data(&self, data: &mut NbtCompound) {
+    pub(super) fn write_misc_data(&self, data: &mut NbtCompound) {
         if let Some(v) = &self.entities {
             data.insert("Entities", v.clone());
         }
@@ -215,7 +145,7 @@ impl Region {
         }
     }
 
-    fn generate_palette_nbt(&self) -> NbtList {
+    pub(super) fn generate_palette_nbt(&self) -> NbtList {
         let mut palette = NbtList::new();
 
         for item in self.block_state_palette.iter() {
@@ -225,7 +155,7 @@ impl Region {
         palette
     }
 
-    fn generate_block_states_nbt(&self, region_volume: Volume) -> Vec<i64> {
+    pub(super) fn generate_block_states_nbt(&self, region_volume: Volume) -> Vec<i64> {
         let bits = Region::calculate_bits(self.block_state_palette.len());
 
         let longs = Region::calculate_amt_of_longs(region_volume.volume(), bits);
@@ -252,22 +182,6 @@ impl Region {
         }
 
         block_states
-    }
-
-    pub fn total_blocks(&self) -> i32 {
-        self.blocks.len() as i32
-    }
-
-    pub fn volume(&self) -> Volume {
-        self.blocks
-            .keys()
-            .fold(None, |maybe_volume: Option<Volume>, value| {
-                Some(match maybe_volume {
-                    None => Volume::new(*value, IVector3::new(1, 1, 1)),
-                    Some(volume) => volume.expand_to_fit(*value),
-                })
-            })
-            .unwrap_or(Volume::new(self.position, IVector3::new(0, 0, 0)))
     }
 }
 
@@ -373,29 +287,5 @@ mod tests {
         assert_eq!(unpacked.get(&IVector3::new(1, 0, 0)), Some(&27));
         assert_eq!(unpacked.get(&IVector3::new(0, 1, 2)), Some(&115));
         assert_eq!(unpacked.get(&IVector3::new(1, 1, 1)), Some(&124));
-    }
-
-    #[test]
-    fn test_new_from_nbt() {
-        let mut root = NbtCompound::new();
-
-        let mut palette = NbtList::new();
-
-        palette.push(BlockState::new("bruh", None).to_nbt());
-        palette.push(BlockState::new("yeet", None).to_nbt());
-        palette.push(BlockState::new("poggers?", None).to_nbt());
-        palette.push(BlockState::new("poggers.", None).to_nbt());
-
-        root.insert("BlockStatePalette", palette);
-
-        root.insert(
-            "BlockStates",
-            vec![0x0123456789abcdef_i64, 0x1032547698badcfe],
-        );
-
-        root.insert("Size", IVector3::new(4, 4, 4));
-        root.insert("Position", IVector3::new(0, 0, 0));
-
-        Region::new_from_nbt(root).unwrap();
     }
 }
