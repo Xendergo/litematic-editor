@@ -2,12 +2,16 @@ use std::collections::HashMap;
 
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
-use crate::{BlockState, BlockStateParseError, IVector3, RegionParseError};
+use crate::{vector::Volume, BlockState, BlockStateParseError, IVector3, RegionParseError};
 
 pub struct Region {
     pub position: IVector3,
     block_state_palette: Vec<BlockState>,
     blocks: HashMap<IVector3, usize>,
+    entities: Option<NbtList>,
+    pending_block_ticks: Option<NbtList>,
+    pending_fluid_ticks: Option<NbtList>,
+    tile_entities: Option<NbtList>,
 }
 
 impl Region {
@@ -38,7 +42,100 @@ impl Region {
                 IVector3::from_nbt(&data, "Size")?,
             ),
             block_state_palette: parsed_palette,
+            entities: data.get::<_, &NbtList>("Entities").ok().map(|v| v.clone()),
+            pending_block_ticks: data
+                .get::<_, &NbtList>("PendingBlockTicks")
+                .ok()
+                .map(|v| v.clone()),
+            pending_fluid_ticks: data
+                .get::<_, &NbtList>("PendingFluidTicks")
+                .ok()
+                .map(|v| v.clone()),
+            tile_entities: data
+                .get::<_, &NbtList>("TileEntities")
+                .ok()
+                .map(|v| v.clone()),
         })
+    }
+
+    pub(crate) fn to_nbt(&self) -> (NbtCompound, Volume) {
+        let mut out = NbtCompound::new();
+
+        let mut palette = NbtList::new();
+
+        for item in self.block_state_palette.iter() {
+            palette.push(item.to_nbt());
+        }
+
+        out.insert("BlockStatePalette", palette);
+
+        if let Some(v) = &self.entities {
+            out.insert("Entities", v.clone());
+        }
+
+        if let Some(v) = &self.pending_block_ticks {
+            out.insert("PendingBlockTicks", v.clone());
+        }
+
+        if let Some(v) = &self.pending_fluid_ticks {
+            out.insert("PendingFluidTicks", v.clone());
+        }
+
+        if let Some(v) = &self.tile_entities {
+            out.insert("TileEntities", v.clone());
+        }
+
+        let volume = self
+            .blocks
+            .keys()
+            .fold(None, |maybe_volume: Option<Volume>, value| {
+                Some(match maybe_volume {
+                    None => Volume::new(*value, IVector3::new(1, 1, 1)),
+                    Some(volume) => volume.expand_to_fit(*value),
+                })
+            });
+
+        let volume = if let Some(v) = volume {
+            v
+        } else {
+            out.insert("BlockStates", NbtTag::LongArray(Vec::new()));
+            out.insert("Position", self.position);
+            out.insert("Size", IVector3::new(0, 0, 0));
+
+            return (out, Volume::new(self.position, IVector3::new(0, 0, 0)));
+        };
+
+        let bits = Region::calculate_bits(self.block_state_palette.len());
+
+        let region_pos = volume.origin();
+        let size = volume.size();
+
+        let longs = ((size.volume() * bits as i32) + (size.volume() * bits as i32 % 64)) / 64;
+
+        out.insert("Position", region_pos);
+        out.insert("Size", size);
+
+        let mut block_states: Vec<i64> = Vec::with_capacity(longs as usize);
+
+        for _ in 0..longs {
+            block_states.push(0);
+        }
+
+        for (block_pos, value) in self.blocks.iter() {
+            Region::set_index_in_packed_array(
+                &mut block_states,
+                *value as i64,
+                match Region::coords_to_index(size, *block_pos - region_pos) {
+                    Some(v) => v,
+                    None => unreachable!(),
+                },
+                bits,
+            )
+        }
+
+        out.insert("BlockStates", block_states);
+
+        (out, volume)
     }
 
     fn calculate_bits(parsed_palette_length: usize) -> u64 {
@@ -93,7 +190,6 @@ impl Region {
         let pos = position_in_array * bits_per_position;
 
         let pos_in_long = pos % 64;
-
         let index = pos as usize / 64;
 
         let bitmap = ((1_i64 << bits_per_position) - 1_i64).rotate_left(pos_in_long as u32);
@@ -110,7 +206,35 @@ impl Region {
         value as usize
     }
 
-    const fn index_to_coords(size: IVector3, index: u64) -> Option<IVector3> {
+    fn set_index_in_packed_array(
+        array: &mut [i64],
+        value: i64,
+        position_in_array: u64,
+        bits_per_position: u64,
+    ) {
+        let pos = position_in_array * bits_per_position;
+
+        let pos_in_long = pos % 64;
+        let index = pos as usize / 64;
+
+        let bitmap_1 = ((1_i64 << bits_per_position) - 1_i64) << pos_in_long;
+        let rotated_value = value.rotate_left(pos_in_long as u32);
+
+        array[index] &= !bitmap_1;
+        array[index] |= rotated_value & bitmap_1;
+
+        if index < array.len() - 1 {
+            let amt_to_shift = 64 - pos_in_long as u32;
+            let bitmap_2 = ((1_i64 << bits_per_position) - 1_i64)
+                .checked_shr(amt_to_shift)
+                .unwrap_or(0);
+            array[index] |= (array[index + 1] & bitmap_2)
+                .checked_shl(amt_to_shift)
+                .unwrap_or(0);
+        }
+    }
+
+    fn index_to_coords(size: IVector3, index: u64) -> Option<IVector3> {
         if size.volume() as u64 <= index {
             return None;
         }
@@ -120,6 +244,18 @@ impl Region {
         let x = (index % (size.x * size.z) as u64) % size.x as u64;
 
         Some(IVector3::new(x as i32, y as i32, z as i32))
+    }
+
+    fn coords_to_index(size: IVector3, pos: IVector3) -> Option<u64> {
+        if !pos.fits_in_positive(IVector3::new(0, 0, 0)) || !pos.fits_in_negative(size) {
+            return None;
+        }
+
+        Some((pos.y * size.x * size.y + pos.z * size.x + pos.x) as u64)
+    }
+
+    pub fn total_blocks(&self) -> i32 {
+        self.blocks.len() as i32
     }
 }
 
@@ -245,8 +381,8 @@ mod tests {
             vec![0x0123456789abcdef_i64, 0x1032547698badcfe],
         );
 
-        root.insert("Size", IVector3::new(4, 4, 4).to_nbt());
-        root.insert("Position", IVector3::new(0, 0, 0).to_nbt());
+        root.insert("Size", IVector3::new(4, 4, 4));
+        root.insert("Position", IVector3::new(0, 0, 0));
 
         Region::new_from_nbt(root).unwrap();
     }
