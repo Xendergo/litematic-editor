@@ -6,6 +6,10 @@ use std::{
 
 use quartz_nbt::{NbtCompound, NbtReprError, NbtTag};
 
+pub type IVector3 = Vector3<i32>;
+pub type UVector3 = Vector3<u32>;
+pub type FVector3 = Vector3<f32>;
+
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy)]
 pub struct Vector3<T: Copy> {
     pub x: T,
