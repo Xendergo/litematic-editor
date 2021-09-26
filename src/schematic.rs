@@ -10,14 +10,30 @@ pub struct Schematic {
     pub author: String,
     pub description: String,
     pub name: String,
-    pub region_count: i32,
-    pub time_created: i64,
+    time_created: i64,
     pub time_modified: i64,
     pub regions: HashMap<String, Region>,
     pub data_version: i32,
 }
 
 impl Schematic {
+    pub fn new(
+        name: Option<String>,
+        author: Option<String>,
+        description: Option<String>,
+        time_created: Option<i64>,
+    ) -> Schematic {
+        Schematic {
+            name: name.unwrap_or("".to_string()),
+            author: author.unwrap_or("".to_string()),
+            description: description.unwrap_or("".to_string()),
+            time_created: time_created.unwrap_or(0),
+            time_modified: time_created.unwrap_or(0),
+            regions: HashMap::new(),
+            data_version: 2730,
+        }
+    }
+
     pub fn from_buffer(data: &mut impl Read) -> Result<Schematic, LitematicParseError> {
         let parsed_data = io::read_nbt(data, Flavor::GzCompressed)?.0;
 
@@ -33,7 +49,6 @@ impl Schematic {
             author: metadata.get::<_, &String>("Author")?.clone(),
             description: metadata.get::<_, &String>("Description")?.clone(),
             name: metadata.get::<_, &String>("Name")?.clone(),
-            region_count: metadata.get::<_, i32>("RegionCount")?,
             time_created: metadata.get::<_, i64>("TimeCreated")?,
             time_modified: metadata.get::<_, i64>("TimeModified")?,
             regions: Schematic::parse_regions(&parsed_data)?,
