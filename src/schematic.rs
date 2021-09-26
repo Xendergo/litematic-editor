@@ -4,7 +4,7 @@ use quartz_nbt::{
 };
 use std::{collections::HashMap, io::Read};
 
-use crate::{vector::Volume, LitematicParseError, Region};
+use crate::{volume::Volume, LitematicParseError, Region};
 
 pub struct Schematic {
     pub author: String,

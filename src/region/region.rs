@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
-use crate::{vector::Volume, BlockState, IVector3, RegionParseError};
+use crate::{volume::Volume, BlockState, IVector3, RegionParseError};
 
 pub struct Region {
     pub volume: Volume,

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
-use crate::{vector::Volume, BlockState, BlockStateParseError, IVector3, Region};
+use crate::{volume::Volume, BlockState, BlockStateParseError, IVector3, Region};
 
 impl Region {
     pub(super) fn calculate_bits(parsed_palette_length: usize) -> u64 {
