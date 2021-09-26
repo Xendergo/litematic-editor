@@ -15,6 +15,17 @@ pub struct Region {
 
 // https://github.com/maruohon/litematica/issues/53#issuecomment-520281566
 impl Region {
+    pub fn new() -> Region {
+        Region {
+            volume: Volume::default(),
+            blocks: HashMap::new(),
+            entities: None,
+            pending_block_ticks: None,
+            pending_fluid_ticks: None,
+            tile_entities: None,
+        }
+    }
+
     pub fn volume(&self) -> Volume {
         self.blocks
             .keys()
@@ -77,7 +88,7 @@ impl Region {
     pub(crate) fn to_nbt(&self) -> (NbtCompound, Volume) {
         let mut out = NbtCompound::new();
 
-        let palette = self.generate_palette_nbt();
+        let palette = Region::generate_palette_nbt(&self.blocks);
 
         out.insert(
             "BlockStatePalette",

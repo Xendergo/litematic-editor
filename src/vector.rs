@@ -24,12 +24,29 @@ impl IVector3 {
         ))
     }
 
+    pub fn fits_in_direction(self, other: IVector3, direction: IVector3) -> bool {
+        IVector3::new(
+            self.x * direction.x.signum(),
+            self.y * direction.y.signum(),
+            self.z * direction.z.signum(),
+        )
+        .fits_in_positive(other)
+    }
+
     pub fn fits_in_positive(self, other: IVector3) -> bool {
-        self.x > other.x && self.y > other.y && self.z > other.z
+        self.x >= other.x && self.y >= other.y && self.z >= other.z
     }
 
     pub fn fits_in_negative(self, other: IVector3) -> bool {
-        self.x < other.x && self.y < other.y && self.z < other.z
+        self.x <= other.x && self.y <= other.y && self.z <= other.z
+    }
+
+    pub fn into_slice(&self) -> [i32; 3] {
+        [self.x, self.y, self.z]
+    }
+
+    pub fn from_slice([x, y, z]: [i32; 3]) -> IVector3 {
+        IVector3 { x: x, y: y, z: z }
     }
 
     pub const fn volume(&self) -> i32 {

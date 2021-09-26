@@ -31,7 +31,11 @@ impl BlockState {
     }
 
     pub(crate) fn new_from_nbt(data: &NbtCompound) -> Result<BlockState, BlockStateParseError> {
-        let properties_nbt = data.get::<_, &NbtTag>("Properties")?.clone();
+        let properties_nbt = match data.get::<_, &NbtTag>("Properties").ok() {
+            Some(v) => v.clone(),
+            None => NbtTag::Compound(NbtCompound::new()),
+        };
+
         let properties_compound = if let NbtTag::Compound(properties_compound) = properties_nbt {
             properties_compound
         } else {
@@ -47,17 +51,17 @@ impl BlockState {
         }
 
         Ok(BlockState {
-            block: data.get::<_, &String>("Name")?.clone(),
+            block: BlockState::prefix_block_name(data.get::<_, &str>("Name")?),
             properties: parsed_properties,
         })
     }
 
     fn prefix_block_name(name: &str) -> String {
         if !name.contains(":") {
-            return "minecraft:".to_string() + &name;
+            return ("minecraft:".to_string() + &name).to_lowercase();
         }
 
-        name.to_string().to_lowercase()
+        name.to_lowercase()
     }
 }
 
@@ -71,7 +75,10 @@ impl Into<NbtTag> for &BlockState {
         }
 
         compound.insert("Name", self.block.clone());
-        compound.insert("Properties", properties);
+
+        if properties.len() > 0 {
+            compound.insert("Properties", properties);
+        }
 
         NbtTag::Compound(compound)
     }
@@ -85,5 +92,54 @@ impl Hash for BlockState {
             key.hash(state);
             value.hash(state);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use quartz_nbt::NbtCompound;
+
+    use crate::BlockState;
+
+    #[test]
+    fn test_prefix_block_name() {
+        assert_eq!(BlockState::prefix_block_name("air"), "minecraft:air");
+        assert_eq!(BlockState::prefix_block_name("Air"), "minecraft:air");
+        assert_eq!(BlockState::prefix_block_name("CoOlMoD:aIr"), "coolmod:air");
+    }
+
+    #[test]
+    fn test_new_from_nbt() {
+        let mut compound = NbtCompound::new();
+
+        compound.insert("Name", "bruh");
+
+        assert_eq!(
+            BlockState::new_from_nbt(&compound).unwrap(),
+            BlockState::new("bruh", None)
+        );
+
+        let mut compound = NbtCompound::new();
+
+        compound.insert("Name", "observer");
+
+        let mut properties = NbtCompound::new();
+
+        properties.insert("facing", "west");
+        properties.insert("powered", "false");
+
+        compound.insert("Properties", properties);
+
+        let mut properties_map = HashMap::new();
+
+        properties_map.insert("facing".to_string(), "west".to_string());
+        properties_map.insert("powered".to_string(), "false".to_string());
+
+        assert_eq!(
+            BlockState::new_from_nbt(&compound).unwrap(),
+            BlockState::new("observer", Some(properties_map))
+        )
     }
 }

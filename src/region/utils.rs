@@ -10,7 +10,9 @@ impl Region {
     }
 
     pub(super) fn calculate_amt_of_longs(region_volume: i32, bits: u64) -> i32 {
-        ((region_volume * bits as i32) + (region_volume * bits as i32 % 64)) / 64
+        let bits_required = region_volume * bits as i32;
+
+        bits_required / 64 + if bits_required % 64 == 0 { 0 } else { 1 }
     }
 
     pub(super) fn parse_palette(
@@ -102,9 +104,9 @@ impl Region {
             let bitmap_2 = ((1_i64 << bits_per_position) - 1_i64)
                 .checked_shr(amt_to_shift)
                 .unwrap_or(0);
-            array[index] |= (array[index + 1] & bitmap_2)
-                .checked_shl(amt_to_shift)
-                .unwrap_or(0);
+
+            array[index + 1] &= !bitmap_2;
+            array[index + 1] |= rotated_value & bitmap_2;
         }
     }
 
@@ -121,11 +123,13 @@ impl Region {
     }
 
     pub(super) fn coords_to_index(size: IVector3, pos: IVector3) -> Option<u64> {
-        if !pos.fits_in_positive(IVector3::new(0, 0, 0)) || !pos.fits_in_negative(size) {
+        if !pos.fits_in_positive(IVector3::new(0, 0, 0))
+            || !pos.fits_in_negative(size - IVector3::new(1, 1, 1))
+        {
             return None;
         }
 
-        Some((pos.y * size.x * size.y + pos.z * size.x + pos.x) as u64)
+        Some((pos.y * size.x * size.z + pos.z * size.x + pos.x) as u64)
     }
 
     pub(super) fn write_misc_data(&self, data: &mut NbtCompound) {
@@ -146,16 +150,10 @@ impl Region {
         }
     }
 
-    pub(super) fn generate_palette_nbt(&self) -> Vec<BlockState> {
-        let palette: HashSet<_> = self.blocks.values().collect();
+    pub(super) fn generate_palette_nbt(blocks: &HashMap<IVector3, BlockState>) -> Vec<BlockState> {
+        let palette: HashSet<_> = blocks.values().collect();
 
         let mut palette_list: Vec<_> = palette.iter().map(|v| (**v).clone()).collect();
-
-        let air = BlockState::new("air", None);
-
-        if let Some(index) = palette_list.iter().position(|v| *v == air) {
-            palette_list.remove(index);
-        }
 
         palette_list.insert(0, BlockState::new("air", None));
 
@@ -311,6 +309,136 @@ mod tests {
         assert_eq!(
             unpacked.get(&IVector3::new(1, 1, 1)),
             Some(&BlockState::new("air", None))
+        );
+    }
+
+    #[test]
+    fn test_calculate_amt_of_longs() {
+        assert_eq!(Region::calculate_amt_of_longs(100, 1), 2);
+        assert_eq!(Region::calculate_amt_of_longs(128, 1), 2);
+        assert_eq!(Region::calculate_amt_of_longs(128, 2), 4);
+        assert_eq!(Region::calculate_amt_of_longs(683, 5), 54);
+    }
+
+    #[test]
+    fn test_set_index_in_packed_array() {
+        let array: &mut [i64] = &mut [0, 0];
+        let bits = 7;
+
+        Region::set_index_in_packed_array(array, 111, 0, bits);
+        Region::set_index_in_packed_array(array, 27, 1, bits);
+        Region::set_index_in_packed_array(array, 115, 10, bits);
+        Region::set_index_in_packed_array(array, 124, 9, bits);
+
+        assert_eq!(Region::get_index_out_of_packed_array(array, 0, bits), 111);
+        assert_eq!(Region::get_index_out_of_packed_array(array, 1, bits), 27);
+        assert_eq!(Region::get_index_out_of_packed_array(array, 10, bits), 115);
+        assert_eq!(Region::get_index_out_of_packed_array(array, 9, bits), 124);
+    }
+
+    #[test]
+    fn test_coords_to_index() {
+        assert_eq!(
+            Region::coords_to_index(
+                IVector3::new(1, 2, 3),
+                Region::index_to_coords(IVector3::new(1, 2, 3), 5).unwrap()
+            ),
+            Some(5)
+        );
+
+        assert_eq!(
+            Region::coords_to_index(
+                IVector3::new(6, 3, 1),
+                Region::index_to_coords(IVector3::new(6, 3, 1), 14).unwrap()
+            ),
+            Some(14)
+        );
+
+        assert_eq!(
+            Region::coords_to_index(
+                IVector3::new(5, 7, 3),
+                Region::index_to_coords(IVector3::new(5, 7, 3), 36).unwrap()
+            ),
+            Some(36)
+        );
+
+        assert_eq!(
+            Region::coords_to_index(IVector3::new(2, 2, 2), IVector3::new(2, 6, 3)),
+            None
+        );
+        assert_eq!(
+            Region::coords_to_index(IVector3::new(2, 2, 2), IVector3::new(2, 1, 1)),
+            None
+        );
+    }
+
+    #[test]
+    fn test_generate_block_data() {
+        let mut region = Region::new();
+
+        region.set_block(IVector3::new(0, 0, 0), BlockState::new("stone", None));
+        region.set_block(
+            IVector3::new(2, 1, 0),
+            BlockState::new("stone_bricks", None),
+        );
+        region.set_block(
+            IVector3::new(2, 2, 0),
+            BlockState::new("stone_bricks", None),
+        );
+        region.set_block(IVector3::new(5, 2, 1), BlockState::new("basalt", None));
+
+        let palette = Region::generate_palette_nbt(region.blocks());
+
+        assert!(palette.contains(&BlockState::new("stone", None)));
+        assert!(palette.contains(&BlockState::new("basalt", None)));
+        assert_eq!(palette.len(), 4);
+        assert_eq!(palette[0], BlockState::new("air", None));
+
+        let volume = region.volume();
+        let size = volume.size();
+
+        let block_states = region.generate_block_states_nbt(volume, &palette);
+
+        assert_eq!(block_states.len(), 2);
+        assert_eq!(
+            palette[Region::get_index_out_of_packed_array(
+                &block_states,
+                Region::coords_to_index(size, IVector3::new(0, 0, 0)).unwrap(),
+                2
+            )],
+            BlockState::new("stone", None)
+        );
+        assert_eq!(
+            palette[Region::get_index_out_of_packed_array(
+                &block_states,
+                Region::coords_to_index(size, IVector3::new(2, 1, 0)).unwrap(),
+                2
+            )],
+            BlockState::new("stone_bricks", None)
+        );
+        assert_eq!(
+            palette[Region::get_index_out_of_packed_array(
+                &block_states,
+                Region::coords_to_index(size, IVector3::new(2, 2, 0)).unwrap(),
+                2
+            )],
+            BlockState::new("stone_bricks", None)
+        );
+        assert_eq!(
+            palette[Region::get_index_out_of_packed_array(
+                &block_states,
+                Region::coords_to_index(size, IVector3::new(5, 2, 1)).unwrap(),
+                2
+            )],
+            BlockState::new("basalt", None)
+        );
+        assert_eq!(
+            palette[Region::get_index_out_of_packed_array(
+                &block_states,
+                Region::coords_to_index(size, IVector3::new(1, 0, 1)).unwrap(),
+                2
+            )],
+            BlockState::new("air", None)
         );
     }
 }
