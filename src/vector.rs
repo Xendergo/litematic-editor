@@ -146,6 +146,13 @@ impl Volume {
         self.pos2 - self.pos1
     }
 
+    pub fn move_to(self, pos: IVector3) -> Volume {
+        Volume {
+            pos1: pos,
+            pos2: self.pos2 + pos,
+        }
+    }
+
     pub fn volume(self) -> i32 {
         (self.pos2 - self.pos1).volume()
     }

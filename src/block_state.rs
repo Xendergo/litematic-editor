@@ -1,24 +1,33 @@
 use std::collections::HashMap;
 
+use core::hash::Hash;
 use quartz_nbt::{NbtCompound, NbtTag};
 
 use crate::BlockStateParseError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BlockState {
-    pub block: String,
+    block: String,
     pub properties: HashMap<String, String>,
 }
 
 impl BlockState {
     pub fn new(block: &str, properties: Option<HashMap<String, String>>) -> BlockState {
         BlockState {
-            block: block.to_string(),
+            block: BlockState::prefix_block_name(block),
             properties: match properties {
                 Some(v) => v,
                 None => HashMap::new(),
             },
         }
+    }
+
+    pub fn get_block(&self) -> &String {
+        &self.block
+    }
+
+    pub fn set_block(&mut self, block: &str) {
+        self.block = BlockState::prefix_block_name(block)
     }
 
     pub(crate) fn new_from_nbt(data: &NbtCompound) -> Result<BlockState, BlockStateParseError> {
@@ -43,7 +52,17 @@ impl BlockState {
         })
     }
 
-    pub(crate) fn to_nbt(&self) -> NbtCompound {
+    fn prefix_block_name(name: &str) -> String {
+        if !name.contains(":") {
+            return "minecraft:".to_string() + &name;
+        }
+
+        name.to_string().to_lowercase()
+    }
+}
+
+impl Into<NbtTag> for &BlockState {
+    fn into(self) -> NbtTag {
         let mut compound = NbtCompound::new();
         let mut properties = NbtCompound::new();
 
@@ -54,6 +73,17 @@ impl BlockState {
         compound.insert("Name", self.block.clone());
         compound.insert("Properties", properties);
 
-        compound
+        NbtTag::Compound(compound)
+    }
+}
+
+impl Hash for BlockState {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.block.hash(state);
+
+        for (key, value) in self.properties.iter() {
+            key.hash(state);
+            value.hash(state);
+        }
     }
 }

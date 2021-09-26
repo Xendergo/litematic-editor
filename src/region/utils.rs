@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
@@ -33,9 +33,10 @@ impl Region {
 
     pub(super) fn unpack_packed_array(
         array: &[i64],
+        palette: &Vec<BlockState>,
         bits_per_position: u64,
         region_size: IVector3,
-    ) -> HashMap<IVector3, usize> {
+    ) -> HashMap<IVector3, BlockState> {
         let blocks = array.len() as u64 * 64 / bits_per_position;
 
         let mut unpacked = HashMap::new();
@@ -48,7 +49,8 @@ impl Region {
 
             unpacked.insert(
                 coords,
-                Region::get_index_out_of_packed_array(array, block, bits_per_position),
+                palette[Region::get_index_out_of_packed_array(array, block, bits_per_position)]
+                    .clone(),
             );
         }
 
@@ -145,18 +147,28 @@ impl Region {
         }
     }
 
-    pub(super) fn generate_palette_nbt(&self) -> NbtList {
-        let mut palette = NbtList::new();
+    pub(super) fn generate_palette_nbt(&self) -> Vec<BlockState> {
+        let palette: HashSet<_> = self.blocks.values().collect();
 
-        for item in self.block_state_palette.iter() {
-            palette.push(item.to_nbt());
+        let mut palette_list: Vec<_> = palette.iter().map(|v| (**v).clone()).collect();
+
+        let air = BlockState::new("air", None);
+
+        if let Some(index) = palette_list.iter().position(|v| *v == air) {
+            palette_list.remove(index);
         }
 
-        palette
+        palette_list.insert(0, BlockState::new("air", None));
+
+        palette_list
     }
 
-    pub(super) fn generate_block_states_nbt(&self, region_volume: Volume) -> Vec<i64> {
-        let bits = Region::calculate_bits(self.block_state_palette.len());
+    pub(super) fn generate_block_states_nbt(
+        &self,
+        region_volume: Volume,
+        palette: &Vec<BlockState>,
+    ) -> Vec<i64> {
+        let bits = Region::calculate_bits(palette.len());
 
         let longs = Region::calculate_amt_of_longs(region_volume.volume(), bits);
 
@@ -172,7 +184,7 @@ impl Region {
         for (block_pos, value) in self.blocks.iter() {
             Region::set_index_in_packed_array(
                 &mut block_states,
-                *value as i64,
+                palette.iter().position(|v| v == value).unwrap() as i64,
                 match Region::coords_to_index(size, *block_pos - region_pos) {
                     Some(v) => v,
                     None => unreachable!(),
@@ -204,17 +216,17 @@ mod tests {
     fn test_parse_palette() {
         let mut list = NbtList::new();
 
-        list.push(BlockState::new("bruh", None).to_nbt());
-        list.push(BlockState::new("yeet", None).to_nbt());
-        list.push(BlockState::new("poggers?", None).to_nbt());
+        list.push(&BlockState::new("bruh", None));
+        list.push(&BlockState::new("yeet", None));
+        list.push(&BlockState::new("poggers?", None));
 
         let parsed = Region::parse_palette(&list);
 
         if let Ok(parsed_ok) = parsed {
             assert_eq!(parsed_ok.len(), 3);
-            assert_eq!(parsed_ok[0].block, "bruh");
-            assert_eq!(parsed_ok[1].block, "yeet");
-            assert_eq!(parsed_ok[2].block, "poggers?");
+            assert_eq!(parsed_ok[0].get_block(), "bruh");
+            assert_eq!(parsed_ok[1].get_block(), "yeet");
+            assert_eq!(parsed_ok[2].get_block(), "poggers?");
         } else {
             panic!("parse_palette errored when it shouldn't have")
         }
@@ -277,15 +289,29 @@ mod tests {
 
     #[test]
     fn test_unpack_packed_array() {
-        let array: &[i64] = &[0x0123456789abcdef, 0x1032547698badcfe];
+        let array: &[i64] = &[0x1111111111111111];
 
-        let unpacked = Region::unpack_packed_array(array, 7, IVector3::new(2, 3, 3));
+        let palette = vec![BlockState::new("air", None), BlockState::new("stone", None)];
+
+        let unpacked = Region::unpack_packed_array(array, &palette, 2, IVector3::new(2, 4, 4));
 
         println!("{:?}", unpacked);
 
-        assert_eq!(unpacked.get(&IVector3::new(0, 0, 0)), Some(&111));
-        assert_eq!(unpacked.get(&IVector3::new(1, 0, 0)), Some(&27));
-        assert_eq!(unpacked.get(&IVector3::new(0, 1, 2)), Some(&115));
-        assert_eq!(unpacked.get(&IVector3::new(1, 1, 1)), Some(&124));
+        assert_eq!(
+            unpacked.get(&IVector3::new(0, 0, 0)),
+            Some(&BlockState::new("air", None))
+        );
+        assert_eq!(
+            unpacked.get(&IVector3::new(1, 0, 0)),
+            Some(&BlockState::new("stone", None))
+        );
+        assert_eq!(
+            unpacked.get(&IVector3::new(0, 1, 2)),
+            Some(&BlockState::new("air", None))
+        );
+        assert_eq!(
+            unpacked.get(&IVector3::new(1, 1, 1)),
+            Some(&BlockState::new("stone", None))
+        );
     }
 }

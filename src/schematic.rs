@@ -53,7 +53,9 @@ impl Schematic {
         metadata.insert("TimeModified", self.time_modified);
         metadata.insert(
             "TotalBlocks",
-            self.regions.values().fold(0, |a, v| a + v.total_blocks()),
+            self.regions
+                .values()
+                .fold(0, |a, v| a + v.blocks().len() as i32),
         );
 
         let mut regions = NbtCompound::new();
