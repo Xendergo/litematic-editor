@@ -37,7 +37,7 @@ impl Region {
         bits_per_position: u64,
         region_size: IVector3,
     ) -> HashMap<IVector3, BlockState> {
-        let blocks = array.len() as u64 * 64 / bits_per_position;
+        let blocks = (array.len() as u64 * 64 / bits_per_position).min(region_size.volume() as u64);
 
         let mut unpacked = HashMap::new();
 
@@ -47,11 +47,10 @@ impl Region {
                 None => unreachable!(),
             };
 
-            unpacked.insert(
-                coords,
-                palette[Region::get_index_out_of_packed_array(array, block, bits_per_position)]
-                    .clone(),
-            );
+            let palette_index =
+                Region::get_index_out_of_packed_array(array, block, bits_per_position);
+
+            unpacked.insert(coords, palette[palette_index].clone());
         }
 
         unpacked
@@ -224,9 +223,9 @@ mod tests {
 
         if let Ok(parsed_ok) = parsed {
             assert_eq!(parsed_ok.len(), 3);
-            assert_eq!(parsed_ok[0].get_block(), "bruh");
-            assert_eq!(parsed_ok[1].get_block(), "yeet");
-            assert_eq!(parsed_ok[2].get_block(), "poggers?");
+            assert_eq!(parsed_ok[0].get_block(), "minecraft:bruh");
+            assert_eq!(parsed_ok[1].get_block(), "minecraft:yeet");
+            assert_eq!(parsed_ok[2].get_block(), "minecraft:poggers?");
         } else {
             panic!("parse_palette errored when it shouldn't have")
         }
@@ -299,19 +298,19 @@ mod tests {
 
         assert_eq!(
             unpacked.get(&IVector3::new(0, 0, 0)),
-            Some(&BlockState::new("air", None))
+            Some(&BlockState::new("stone", None))
         );
         assert_eq!(
             unpacked.get(&IVector3::new(1, 0, 0)),
-            Some(&BlockState::new("stone", None))
-        );
-        assert_eq!(
-            unpacked.get(&IVector3::new(0, 1, 2)),
             Some(&BlockState::new("air", None))
         );
         assert_eq!(
-            unpacked.get(&IVector3::new(1, 1, 1)),
+            unpacked.get(&IVector3::new(0, 1, 2)),
             Some(&BlockState::new("stone", None))
+        );
+        assert_eq!(
+            unpacked.get(&IVector3::new(1, 1, 1)),
+            Some(&BlockState::new("air", None))
         );
     }
 }
