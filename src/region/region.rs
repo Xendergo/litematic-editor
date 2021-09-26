@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
-use crate::{volume::Volume, BlockState, IVector3, RegionParseError};
+use crate::{volume::Volume, BlockState, RegionParseError, Vector3};
 
 pub struct Region {
     pub volume: Volume,
-    pub(super) blocks: HashMap<IVector3, BlockState>,
+    pub(super) blocks: HashMap<Vector3<i32>, BlockState>,
     pub(super) entities: Option<NbtList>,
     pub(super) pending_block_ticks: Option<NbtList>,
     pub(super) pending_fluid_ticks: Option<NbtList>,
@@ -32,13 +32,13 @@ impl Region {
             .fold(self.volume, |volume, value| volume.expand_to_fit(*value))
     }
 
-    pub fn set_block(&mut self, pos: IVector3, block: BlockState) {
+    pub fn set_block(&mut self, pos: Vector3<i32>, block: BlockState) {
         if block != BlockState::new("air", None) {
             self.blocks.insert(pos, block);
         }
     }
 
-    pub fn blocks(&self) -> &HashMap<IVector3, BlockState> {
+    pub fn blocks(&self) -> &HashMap<Vector3<i32>, BlockState> {
         &self.blocks
     }
 
@@ -59,10 +59,10 @@ impl Region {
                 return Err(RegionParseError::WrongTag("BlockStates".to_string()));
             };
 
-        let size = IVector3::from_nbt(&data, "Size")?;
+        let size = Vector3::from_nbt(&data, "Size")?;
 
         Ok(Region {
-            volume: Volume::new(IVector3::from_nbt(&data, "Position")?, size),
+            volume: Volume::new(Vector3::from_nbt(&data, "Position")?, size),
             blocks: Region::unpack_packed_array(
                 blocks_long_array,
                 &parsed_palette,
@@ -136,8 +136,8 @@ mod tests {
             vec![0x0123456789abcdef_i64, 0x1032547698badcfe],
         );
 
-        root.insert("Size", IVector3::new(4, 4, 4));
-        root.insert("Position", IVector3::new(0, 0, 0));
+        root.insert("Size", Vector3::new(4, 4, 4));
+        root.insert("Position", Vector3::new(0, 0, 0));
 
         Region::new_from_nbt(root).unwrap();
     }

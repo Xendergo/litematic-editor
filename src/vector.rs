@@ -1,31 +1,51 @@
-use std::ops::{Add, Sub};
+use std::{
+    convert::TryFrom,
+    error::Error,
+    ops::{Add, Sub},
+};
 
 use quartz_nbt::{NbtCompound, NbtReprError, NbtTag};
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy)]
-pub struct IVector3 {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
+pub struct Vector3<T: Copy> {
+    pub x: T,
+    pub y: T,
+    pub z: T,
 }
 
-impl IVector3 {
-    pub const fn new(x: i32, y: i32, z: i32) -> IVector3 {
-        return IVector3 { x: x, y: y, z: z };
+impl<T: Copy> Vector3<T> {
+    pub fn new(x: T, y: T, z: T) -> Vector3<T> {
+        return Vector3 { x: x, y: y, z: z };
     }
 
-    pub(crate) fn from_nbt(nbt: &NbtCompound, name: &str) -> Result<IVector3, NbtReprError> {
+    pub fn into_slice(&self) -> [T; 3] {
+        [self.x, self.y, self.z]
+    }
+
+    pub fn from_slice([x, y, z]: [T; 3]) -> Vector3<T> {
+        Vector3 { x: x, y: y, z: z }
+    }
+}
+
+impl<'a, T> Vector3<T>
+where
+    T: Copy + TryFrom<&'a NbtTag>,
+    <T as TryFrom<&'a NbtTag>>::Error: Error + Sync + Send + 'static,
+{
+    pub(crate) fn from_nbt(nbt: &'a NbtCompound, name: &str) -> Result<Vector3<T>, NbtReprError> {
         let vec_nbt = nbt.get::<_, &NbtCompound>(name)?;
 
-        Ok(IVector3::new(
-            vec_nbt.get::<_, i32>("x")?,
-            vec_nbt.get::<_, i32>("y")?,
-            vec_nbt.get::<_, i32>("z")?,
+        Ok(Vector3::new(
+            vec_nbt.get::<'a, 'a, str, T>("x")?,
+            vec_nbt.get::<'a, 'a, str, T>("y")?,
+            vec_nbt.get::<'a, 'a, str, T>("z")?,
         ))
     }
+}
 
-    pub fn fits_in_direction(self, other: IVector3, direction: IVector3) -> bool {
-        IVector3::new(
+impl Vector3<i32> {
+    pub fn fits_in_direction(self, other: Vector3<i32>, direction: Vector3<i32>) -> bool {
+        Vector3::new(
             self.x * direction.x.signum(),
             self.y * direction.y.signum(),
             self.z * direction.z.signum(),
@@ -33,20 +53,12 @@ impl IVector3 {
         .fits_in_positive(other)
     }
 
-    pub fn fits_in_positive(self, other: IVector3) -> bool {
+    pub fn fits_in_positive(self, other: Vector3<i32>) -> bool {
         self.x >= other.x && self.y >= other.y && self.z >= other.z
     }
 
-    pub fn fits_in_negative(self, other: IVector3) -> bool {
+    pub fn fits_in_negative(self, other: Vector3<i32>) -> bool {
         self.x <= other.x && self.y <= other.y && self.z <= other.z
-    }
-
-    pub fn into_slice(&self) -> [i32; 3] {
-        [self.x, self.y, self.z]
-    }
-
-    pub fn from_slice([x, y, z]: [i32; 3]) -> IVector3 {
-        IVector3 { x: x, y: y, z: z }
     }
 
     pub const fn volume(&self) -> i32 {
@@ -54,35 +66,35 @@ impl IVector3 {
     }
 }
 
-impl Add for IVector3 {
-    type Output = IVector3;
+impl<T: Copy + Add<Output = T>> Add for Vector3<T> {
+    type Output = Vector3<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
         let mut ret = self;
 
-        ret.x += rhs.x;
-        ret.y += rhs.y;
-        ret.z += rhs.z;
+        ret.x = ret.x + rhs.x;
+        ret.y = ret.y + rhs.y;
+        ret.z = ret.z + rhs.z;
 
         ret
     }
 }
 
-impl Sub for IVector3 {
-    type Output = IVector3;
+impl<T: Copy + Sub<Output = T>> Sub for Vector3<T> {
+    type Output = Vector3<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let mut ret = self;
 
-        ret.x -= rhs.x;
-        ret.y -= rhs.y;
-        ret.z -= rhs.z;
+        ret.x = ret.x - rhs.x;
+        ret.y = ret.y - rhs.y;
+        ret.z = ret.z - rhs.z;
 
         ret
     }
 }
 
-impl Into<NbtTag> for IVector3 {
+impl<T: Copy + Into<NbtTag>> Into<NbtTag> for Vector3<T> {
     fn into(self) -> NbtTag {
         let mut compound = NbtCompound::new();
 
@@ -94,9 +106,9 @@ impl Into<NbtTag> for IVector3 {
     }
 }
 
-impl Default for IVector3 {
+impl Default for Vector3<i32> {
     fn default() -> Self {
-        IVector3 { x: 0, y: 0, z: 0 }
+        Vector3 { x: 0, y: 0, z: 0 }
     }
 }
 
@@ -106,9 +118,9 @@ mod test {
 
     #[test]
     fn test_volume() {
-        assert_eq!(IVector3::new(2, 3, 4).volume(), 24);
-        assert_eq!(IVector3::new(0, 3, 4).volume(), 0);
-        assert_eq!(IVector3::new(-2, 3, 4).volume(), 24);
+        assert_eq!(Vector3::new(2, 3, 4).volume(), 24);
+        assert_eq!(Vector3::new(0, 3, 4).volume(), 0);
+        assert_eq!(Vector3::new(-2, 3, 4).volume(), 24);
     }
 
     #[test]
@@ -124,14 +136,14 @@ mod test {
         root.insert("size", vec_nbt);
 
         assert_eq!(
-            IVector3::from_nbt(&root, "size").unwrap(),
-            IVector3::new(2, 3, 4)
+            Vector3::from_nbt(&root, "size").unwrap(),
+            Vector3::new(2, 3, 4)
         );
     }
 
     #[test]
     fn test_to_nbt() {
-        let nbt: NbtTag = IVector3::new(2, 3, 4).into();
+        let nbt: NbtTag = Vector3::new(2, 3, 4).into();
 
         if let NbtTag::Compound(v) = nbt {
             assert_eq!(v.get::<_, i32>("x").unwrap(), 2);
