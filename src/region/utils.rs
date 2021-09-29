@@ -110,7 +110,7 @@ impl Region {
         }
     }
 
-    pub(super) fn index_to_coords(size: Vector3<i32>, index: u64) -> Option<Vector3<i32>> {
+    pub(crate) fn index_to_coords(size: Vector3<i32>, index: u64) -> Option<Vector3<i32>> {
         if size.volume() as u64 <= index {
             return None;
         }
@@ -271,6 +271,11 @@ mod tests {
 
         assert_eq!(
             Region::index_to_coords(Vector3::new(2, 3, 3), 9),
+            Some(Vector3::new(1, 1, 1))
+        );
+
+        assert_eq!(
+            Region::index_to_coords(Vector3::new(2, -3, 3), 9),
             Some(Vector3::new(1, 1, 1))
         );
     }

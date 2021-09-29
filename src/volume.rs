@@ -1,4 +1,4 @@
-use crate::Vector3;
+use crate::{IVector3, Region, Vector3};
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy)]
 pub struct Volume {
@@ -80,6 +80,49 @@ impl Volume {
     pub fn volume(self) -> i32 {
         (self.pos2 - self.pos1).volume()
     }
+
+    pub fn make_size_positive(self) -> Volume {
+        let mut pos1 = self.pos1.into_slice();
+        let mut pos2 = self.pos2.into_slice();
+
+        for i in 0..3 {
+            if pos1[i] > pos2[i] {
+                let tmp = pos1[i];
+                pos1[i] = pos2[i];
+                pos2[i] = tmp;
+            }
+        }
+
+        Volume {
+            pos1: Vector3::from_slice(pos1),
+            pos2: Vector3::from_slice(pos2),
+        }
+    }
+
+    pub fn iter(self) -> VolumeIterator {
+        VolumeIterator {
+            volume: self.make_size_positive(),
+            current_pos: 0,
+        }
+    }
+}
+
+pub struct VolumeIterator {
+    volume: Volume,
+    current_pos: u64,
+}
+
+impl Iterator for VolumeIterator {
+    type Item = IVector3;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = Region::index_to_coords(self.volume.size(), self.current_pos)
+            .map(|v| v + self.volume.pos1);
+
+        self.current_pos += 1;
+
+        ret
+    }
 }
 
 impl Default for Volume {
@@ -145,5 +188,33 @@ mod tests {
                 .expand_to_fit(Vector3::new(0, 0, 0)),
             Volume::new(Vector3::new(0, 1, 0), Vector3::new(3, -2, 3))
         );
+    }
+
+    #[test]
+    fn test_make_size_positive() {
+        assert_eq!(
+            Volume::new(Vector3::new(1, 1, 1), Vector3::new(1, -1, 1)).make_size_positive(),
+            Volume::new(Vector3::new(1, 0, 1), Vector3::new(1, 1, 1))
+        );
+
+        assert_eq!(
+            Volume::new(Vector3::new(1, 1, 1), Vector3::new(1, 1, 1)).make_size_positive(),
+            Volume::new(Vector3::new(1, 1, 1), Vector3::new(1, 1, 1))
+        );
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut iter = Volume::new(Vector3::new(1, 1, 1), Vector3::new(2, 2, 2)).iter();
+
+        assert_eq!(iter.next(), Some(Vector3::new(1, 1, 1)));
+        assert_eq!(iter.next(), Some(Vector3::new(2, 1, 1)));
+        assert_eq!(iter.next(), Some(Vector3::new(1, 1, 2)));
+        assert_eq!(iter.next(), Some(Vector3::new(2, 1, 2)));
+        assert_eq!(iter.next(), Some(Vector3::new(1, 2, 1)));
+        assert_eq!(iter.next(), Some(Vector3::new(2, 2, 1)));
+        assert_eq!(iter.next(), Some(Vector3::new(1, 2, 2)));
+        assert_eq!(iter.next(), Some(Vector3::new(2, 2, 2)));
+        assert_eq!(iter.next(), None);
     }
 }
