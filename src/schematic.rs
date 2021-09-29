@@ -1,5 +1,5 @@
 use quartz_nbt::{
-    io::{self, Flavor, NbtIoError},
+    io::{self, Flavor},
     NbtCompound, NbtTag,
 };
 use std::{collections::HashMap, io::Read};
@@ -56,7 +56,7 @@ impl Schematic {
         })
     }
 
-    pub fn to_buffer(&self) -> Result<Vec<u8>, NbtIoError> {
+    pub fn to_buffer(&self) -> Vec<u8> {
         let mut out = NbtCompound::new();
 
         let mut metadata = NbtCompound::new();
@@ -100,9 +100,9 @@ impl Schematic {
 
         let mut out_buffer = Vec::new();
 
-        io::write_nbt(&mut out_buffer, None, &out, Flavor::GzCompressed)?;
+        io::write_nbt(&mut out_buffer, None, &out, Flavor::GzCompressed).unwrap();
 
-        Ok(out_buffer)
+        out_buffer
     }
 
     fn parse_regions(data: &NbtCompound) -> Result<HashMap<String, Region>, LitematicParseError> {
