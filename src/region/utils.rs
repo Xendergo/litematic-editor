@@ -52,7 +52,9 @@ impl Region {
             let palette_index =
                 Region::get_index_out_of_packed_array(array, block, bits_per_position);
 
-            unpacked.insert(coords, palette[palette_index].clone());
+            if palette[palette_index] != BlockState::new("air", None) {
+                unpacked.insert(coords, palette[palette_index].clone());
+            }
         }
 
         unpacked
