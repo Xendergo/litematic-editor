@@ -61,6 +61,7 @@ impl Schematic {
 
         let mut metadata = NbtCompound::new();
 
+        metadata.insert("Name", self.name.clone());
         metadata.insert("Author", self.author.clone());
         metadata.insert("Description", self.description.clone());
         metadata.insert("RegionCount", self.regions.len() as i32);
