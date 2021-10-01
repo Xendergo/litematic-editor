@@ -1,3 +1,7 @@
+#![deny(rustdoc::broken_intra_doc_links)]
+#![deny(rustdoc::private_intra_doc_links)]
+#![warn(missing_docs)]
+
 mod block_state;
 mod error;
 mod region;
