@@ -5,13 +5,34 @@ use quartz_nbt::{NbtCompound, NbtTag};
 
 use crate::BlockStateParseError;
 
+/// A struct that represents a block state
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BlockState {
     block: String,
+    /// A hashmap of the block's properties
     pub properties: HashMap<String, String>,
 }
 
 impl BlockState {
+    /// Create a new block state
+    ///
+    /// ```
+    /// use litematic_editor::{BlockState, Vector3, Region};
+    /// use std::collection::HashMap;
+    ///
+    /// let mut region = Region::new();
+    ///
+    /// let mut properties = HashMap::new();
+    /// properties.insert("axis".to_string(), "y".to_string());
+    ///
+    /// region.set_block(Vector3::new(0, 0, 0), BlockState::new("basalt", Some(properties)));
+    /// ```
+    ///
+    /// It also automatically prefixes the block name with `minecraft:` if it's left out, and converts it to lowercase
+    ///
+    /// ```
+    /// assert_eq(BlockState::new("sToNe", None), BlockState::new("minecraft:stone", None));
+    /// ``` 
     pub fn new(block: &str, properties: Option<HashMap<String, String>>) -> BlockState {
         BlockState {
             block: BlockState::prefix_block_name(block),
@@ -22,10 +43,19 @@ impl BlockState {
         }
     }
 
+    /// Gets the name of the block
+    ///
+    /// ```
+    /// assert_eq(BlockState::new("stone", None).get_block(), "minecraft:stone");
+    /// ```
     pub fn get_block(&self) -> &String {
         &self.block
     }
 
+    /// Sets the name of the block
+    ///
+    /// ```
+    /// let mut block = BlockState::new("stone", None);
     pub fn set_block(&mut self, block: &str) {
         self.block = BlockState::prefix_block_name(block)
     }

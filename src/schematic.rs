@@ -6,17 +6,24 @@ use std::{collections::HashMap, io::Read};
 
 use crate::{volume::Volume, LitematicParseError, Region};
 
+/// A struct that stores the data in a schematic
 pub struct Schematic {
+    /// A schematic's author
     pub author: String,
+    /// A schematic's description
     pub description: String,
+    /// A schematic's name
     pub name: String,
     time_created: i64,
+    /// Last time a schematic was modified
     pub time_modified: i64,
+    /// A hashmap of the schematic's regions
     pub regions: HashMap<String, Region>,
-    pub data_version: i32,
+    data_version: i32,
 }
 
 impl Schematic {
+    /// Create a new schematic
     pub fn new(
         name: Option<String>,
         author: Option<String>,
@@ -34,6 +41,14 @@ impl Schematic {
         }
     }
 
+    /// Read a schematic from a buffer
+    ///
+    /// ```
+    /// use litematic_editor::Schematic;
+    /// use std::fs;
+    ///
+    /// let schematic = Schematic::from_buffer(fs::read("path/to/schematic")?);
+    /// ```
     pub fn from_buffer(data: &mut impl Read) -> Result<Schematic, LitematicParseError> {
         let parsed_data = io::read_nbt(data, Flavor::GzCompressed)?.0;
 
@@ -56,6 +71,18 @@ impl Schematic {
         })
     }
 
+    /// Write a schematic's data to a vector
+    ///
+    /// ```
+    /// use litematic_editor::Schematic;
+    /// use std::fs;
+    ///
+    /// let schematic = Schematic::new(Some("example schematic"), Some("a cool person"), None, None)
+    /// 
+    /// let buffer = schematic.to_buffer();
+    ///
+    /// fs::write("path/to/schematic", buffer)?;
+    /// ```
     pub fn to_buffer(&self) -> Vec<u8> {
         let mut out = NbtCompound::new();
 
