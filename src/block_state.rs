@@ -32,7 +32,7 @@ impl BlockState {
     ///
     /// ```
     /// assert_eq(BlockState::new("sToNe", None), BlockState::new("minecraft:stone", None));
-    /// ``` 
+    /// ```
     pub fn new(block: &str, properties: Option<HashMap<String, String>>) -> BlockState {
         BlockState {
             block: BlockState::prefix_block_name(block),
@@ -56,6 +56,10 @@ impl BlockState {
     ///
     /// ```
     /// let mut block = BlockState::new("stone", None);
+    /// assert_eq(block.get_block(), "minecraft:stone");
+    ///
+    /// block.set_block("basalt");
+    /// assert_eq(block.get_block(), "minecraft:basalt");
     pub fn set_block(&mut self, block: &str) {
         self.block = BlockState::prefix_block_name(block)
     }

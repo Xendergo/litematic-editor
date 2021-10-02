@@ -15,7 +15,7 @@ pub struct Schematic {
     /// A schematic's name
     pub name: String,
     time_created: i64,
-    /// Last time a schematic was modified
+    /// Last time a schematic was modified, in milliseconds since 1970
     pub time_modified: i64,
     /// A hashmap of the schematic's regions
     pub regions: HashMap<String, Region>,
@@ -71,14 +71,14 @@ impl Schematic {
         })
     }
 
-    /// Write a schematic's data to a vector
+    /// Write a schematic's data to a u8 vector
     ///
     /// ```
     /// use litematic_editor::Schematic;
     /// use std::fs;
     ///
     /// let schematic = Schematic::new(Some("example schematic"), Some("a cool person"), None, None)
-    /// 
+    ///
     /// let buffer = schematic.to_buffer();
     ///
     /// fs::write("path/to/schematic", buffer)?;

@@ -6,26 +6,36 @@ use std::{
 
 use quartz_nbt::{NbtCompound, NbtReprError, NbtTag};
 
+/// A Vector3 of i32 values
 pub type IVector3 = Vector3<i32>;
+/// A Vector3 of u32 values
 pub type UVector3 = Vector3<u32>;
+/// A Vector3 of f32 values
 pub type FVector3 = Vector3<f32>;
 
+/// A vector of three values, used to represent a position
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Copy)]
 pub struct Vector3<T: Copy> {
+    /// x position
     pub x: T,
+    /// y position
     pub y: T,
+    /// z position
     pub z: T,
 }
 
 impl<T: Copy> Vector3<T> {
+    /// Create a new vector
     pub fn new(x: T, y: T, z: T) -> Vector3<T> {
         return Vector3 { x: x, y: y, z: z };
     }
 
+    /// Convert a vector into a slice of three values
     pub fn into_slice(&self) -> [T; 3] {
         [self.x, self.y, self.z]
     }
 
+    /// Convert a slice of three values into a vector
     pub fn from_slice([x, y, z]: [T; 3]) -> Vector3<T> {
         Vector3 { x: x, y: y, z: z }
     }
@@ -48,24 +58,40 @@ where
 }
 
 impl Vector3<i32> {
-    pub fn fits_in_direction(self, other: Vector3<i32>, direction: Vector3<i32>) -> bool {
-        Vector3::new(
-            self.x * direction.x.signum(),
-            self.y * direction.y.signum(),
-            self.z * direction.z.signum(),
-        )
-        .fits_in_positive(other)
-    }
-
+    /// Check if all three coordinates of this vector are higher than the coordinates of the other vector
+    ///
+    /// ```
+    /// let v1 = Vector3::new(1, 2, 3);
+    ///
+    /// assert_eq!(Vector3::new(2, 3, 4).fits_in_positive(v1), true);
+    /// assert_eq!(Vector3::new(1, 2, 3).fits_in_positive(v1), true);
+    /// assert_eq!(Vector3::new(1, 1, 3).fits_in_positive(v1), false);
+    /// ```
     pub fn fits_in_positive(self, other: Vector3<i32>) -> bool {
         self.x >= other.x && self.y >= other.y && self.z >= other.z
     }
 
+    /// Check if all three coordinates of this vector are lower than the coordinates of the other vector
+    ///
+    /// ```
+    /// let v1 = Vector3::new(1, 2, 3);
+    ///
+    /// assert_eq!(Vector3::new(0, 1, 2).fits_in_negative(v1), true);
+    /// assert_eq!(Vector3::new(1, 2, 3).fits_in_negative(v1), true);
+    /// assert_eq!(Vector3::new(1, 2, 4).fits_in_negative(v1), false);
+    /// ```
     pub fn fits_in_negative(self, other: Vector3<i32>) -> bool {
         self.x <= other.x && self.y <= other.y && self.z <= other.z
     }
 
-    pub const fn volume(&self) -> i32 {
+    /// Get the volume of the volume between (0, 0, 0) and this vector
+    ///
+    /// ```
+    /// assert_eq!(Vector3::new(0, 0, 0), 0);
+    /// assert_eq!(Vector3::new(1, 2, 3), 6);
+    /// assert_eq!(Vector3::new(-3, 2, 7), 42);
+    /// ```
+    pub fn volume(&self) -> i32 {
         (self.x * self.y * self.z).abs()
     }
 }

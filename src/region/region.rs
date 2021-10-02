@@ -4,7 +4,11 @@ use quartz_nbt::{NbtCompound, NbtList, NbtTag};
 
 use crate::{volume::Volume, BlockState, RegionParseError, Vector3};
 
+/// Represents a region of blocks
 pub struct Region {
+    /// The original volume taken up by the region
+    ///
+    /// May not reflect the actual space taken up when new blocks are inserted into the region. For that, use the [volume()](Region::volume) method
     pub volume: Volume,
     pub(super) blocks: HashMap<Vector3<i32>, BlockState>,
     pub(super) entities: Option<NbtList>,
@@ -15,6 +19,7 @@ pub struct Region {
 
 // https://github.com/maruohon/litematica/issues/53#issuecomment-520281566
 impl Region {
+    /// Create a new region
     pub fn new() -> Region {
         Region {
             volume: Volume::default(),
@@ -26,18 +31,23 @@ impl Region {
         }
     }
 
+    /// Calculates the volume taken up by a region including all the blocks in it
     pub fn volume(&self) -> Volume {
         self.blocks
             .keys()
             .fold(self.volume, |volume, value| volume.expand_to_fit(*value))
     }
 
+    /// Set a block state in the region
     pub fn set_block(&mut self, pos: Vector3<i32>, block: BlockState) {
         if block != BlockState::new("air", None) {
             self.blocks.insert(pos, block);
+        } else {
+            self.blocks.remove(&pos);
         }
     }
 
+    /// A read only map of all the blocks in the region, excluding air blocks
     pub fn blocks(&self) -> &HashMap<Vector3<i32>, BlockState> {
         &self.blocks
     }
