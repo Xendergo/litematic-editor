@@ -18,14 +18,14 @@
 //!
 //!         // Iterate over all the blocks in the region and mark every stone block in every third layer to be turned into stone bricks
 //!         for (pos, state) in region.blocks().iter() {
-//!             if state == &BlockState::new("stone", None) && pos.y % 3 == 0 {
+//!             if state == "stone" && pos.y % 3 == 0 {
 //!                 blocks_to_change.push(*pos);
 //!             }
 //!         }
 //!         
 //!         // Turn the chosen blocks into stone bricks
 //!         for block in blocks_to_change {
-//!             region.set_block(block, BlockState::new("stone_bricks", None));
+//!             region.set_block(block, "stone_bricks");
 //!         }
 //!     }
 //!

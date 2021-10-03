@@ -102,6 +102,18 @@ impl BlockState {
     }
 }
 
+impl<T: AsRef<str> + ?Sized> PartialEq<T> for BlockState {
+    fn eq(&self, other: &T) -> bool {
+        self.block == BlockState::prefix_block_name(other.as_ref())
+    }
+}
+
+impl<T: AsRef<str>> From<T> for BlockState {
+    fn from(str: T) -> Self {
+        BlockState::new(str.as_ref(), None)
+    }
+}
+
 impl Into<NbtTag> for &BlockState {
     fn into(self) -> NbtTag {
         let mut compound = NbtCompound::new();

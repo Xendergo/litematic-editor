@@ -39,7 +39,9 @@ impl Region {
     }
 
     /// Set a block state in the region
-    pub fn set_block(&mut self, pos: Vector3<i32>, block: BlockState) {
+    pub fn set_block(&mut self, pos: Vector3<i32>, block: impl Into<BlockState>) {
+        let block = block.into();
+
         if block != BlockState::new("air", None) {
             self.blocks.insert(pos, block);
         } else {
