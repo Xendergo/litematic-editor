@@ -202,6 +202,15 @@ impl Volume {
     }
 }
 
+impl IntoIterator for Volume {
+    type Item = IVector3;
+    type IntoIter = VolumeIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 pub struct VolumeIterator {
     volume: Volume,
     current_pos: u64,
