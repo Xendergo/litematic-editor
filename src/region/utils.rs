@@ -185,7 +185,10 @@ impl Region {
             Region::set_index_in_packed_array(
                 &mut block_states,
                 palette.iter().position(|v| v == value).unwrap() as i64,
-                match Region::coords_to_index(size, *block_pos) {
+                match Region::coords_to_index(
+                    size,
+                    *block_pos - region_volume.origin() + self.volume.origin(),
+                ) {
                     Some(v) => v,
                     None => unreachable!(),
                 },

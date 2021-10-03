@@ -117,7 +117,7 @@ impl Region {
 
         out.insert(
             "BlockStates",
-            self.generate_block_states_nbt(volume, &palette),
+            self.generate_block_states_nbt(volume.make_size_positive(), &palette),
         );
 
         (out, volume)

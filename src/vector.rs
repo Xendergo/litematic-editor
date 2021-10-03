@@ -94,7 +94,7 @@ impl Vector3<i32> {
     /// assert_eq!(Vector3::new(1, 2, 3).volume(), 6);
     /// assert_eq!(Vector3::new(-3, 2, 7).volume(), 42);
     /// ```
-    pub fn volume(&self) -> i32 {
+    pub fn volume(self) -> i32 {
         (self.x * self.y * self.z).abs()
     }
 }
