@@ -61,6 +61,7 @@ impl Vector3<i32> {
     /// Check if all three coordinates of this vector are higher than the coordinates of the other vector
     ///
     /// ```
+    /// # use litematic_editor::Vector3;
     /// let v1 = Vector3::new(1, 2, 3);
     ///
     /// assert_eq!(Vector3::new(2, 3, 4).fits_in_positive(v1), true);
@@ -74,6 +75,7 @@ impl Vector3<i32> {
     /// Check if all three coordinates of this vector are lower than the coordinates of the other vector
     ///
     /// ```
+    /// # use litematic_editor::Vector3;
     /// let v1 = Vector3::new(1, 2, 3);
     ///
     /// assert_eq!(Vector3::new(0, 1, 2).fits_in_negative(v1), true);
@@ -87,9 +89,10 @@ impl Vector3<i32> {
     /// Get the volume of the volume between (0, 0, 0) and this vector
     ///
     /// ```
-    /// assert_eq!(Vector3::new(0, 0, 0), 0);
-    /// assert_eq!(Vector3::new(1, 2, 3), 6);
-    /// assert_eq!(Vector3::new(-3, 2, 7), 42);
+    /// # use litematic_editor::Vector3;
+    /// assert_eq!(Vector3::new(0, 0, 0).volume(), 0);
+    /// assert_eq!(Vector3::new(1, 2, 3).volume(), 6);
+    /// assert_eq!(Vector3::new(-3, 2, 7).volume(), 42);
     /// ```
     pub fn volume(&self) -> i32 {
         (self.x * self.y * self.z).abs()

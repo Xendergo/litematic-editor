@@ -307,18 +307,12 @@ mod tests {
             unpacked.get(&Vector3::new(0, 0, 0)),
             Some(&BlockState::new("stone", None))
         );
-        assert_eq!(
-            unpacked.get(&Vector3::new(1, 0, 0)),
-            Some(&BlockState::new("air", None))
-        );
+        assert_eq!(unpacked.get(&Vector3::new(1, 0, 0)), None);
         assert_eq!(
             unpacked.get(&Vector3::new(0, 1, 2)),
             Some(&BlockState::new("stone", None))
         );
-        assert_eq!(
-            unpacked.get(&Vector3::new(1, 1, 1)),
-            Some(&BlockState::new("air", None))
-        );
+        assert_eq!(unpacked.get(&Vector3::new(1, 1, 1)), None);
     }
 
     #[test]

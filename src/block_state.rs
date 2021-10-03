@@ -18,7 +18,7 @@ impl BlockState {
     ///
     /// ```
     /// use litematic_editor::{BlockState, Vector3, Region};
-    /// use std::collection::HashMap;
+    /// use std::collections::HashMap;
     ///
     /// let mut region = Region::new();
     ///
@@ -31,7 +31,8 @@ impl BlockState {
     /// It also automatically prefixes the block name with `minecraft:` if it's left out, and converts it to lowercase
     ///
     /// ```
-    /// assert_eq(BlockState::new("sToNe", None), BlockState::new("minecraft:stone", None));
+    /// # use litematic_editor::BlockState;
+    /// assert_eq!(BlockState::new("sToNe", None), BlockState::new("minecraft:stone", None));
     /// ```
     pub fn new(block: &str, properties: Option<HashMap<String, String>>) -> BlockState {
         BlockState {
@@ -46,7 +47,8 @@ impl BlockState {
     /// Gets the name of the block
     ///
     /// ```
-    /// assert_eq(BlockState::new("stone", None).get_block(), "minecraft:stone");
+    /// # use litematic_editor::BlockState;
+    /// assert_eq!(BlockState::new("stone", None).get_block(), "minecraft:stone");
     /// ```
     pub fn get_block(&self) -> &String {
         &self.block
@@ -55,11 +57,12 @@ impl BlockState {
     /// Sets the name of the block
     ///
     /// ```
+    /// # use litematic_editor::BlockState;
     /// let mut block = BlockState::new("stone", None);
-    /// assert_eq(block.get_block(), "minecraft:stone");
+    /// assert_eq!(block.get_block(), "minecraft:stone");
     ///
     /// block.set_block("basalt");
-    /// assert_eq(block.get_block(), "minecraft:basalt");
+    /// assert_eq!(block.get_block(), "minecraft:basalt");
     pub fn set_block(&mut self, block: &str) {
         self.block = BlockState::prefix_block_name(block)
     }

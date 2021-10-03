@@ -7,7 +7,7 @@
 //!
 //! fn main() {
 //!     // Read a schematic's file data
-//!     let data = fs::read("path/to/schematic.litematic").unwrap();
+//!     let data = fs::read("test/path/to/schematic.litematic").unwrap();
 //!
 //!     // Convert the data into an easy to deal with `Schematic` type
 //!     let mut schematic = Schematic::from_buffer(&mut data.as_slice()).unwrap();
@@ -16,9 +16,9 @@
 //!     for (_, region) in schematic.regions.iter_mut() {
 //!         let mut blocks_to_change = Vec::new();
 //!
-//!         // Iterate over all the blocks in the region and choose some random stone blocks to turn into stone bricks
+//!         // Iterate over all the blocks in the region and turn every third layer into stone bricks
 //!         for (pos, state) in region.blocks().iter() {
-//!             if state == &BlockState::new("stone", None) && rand::random::<f32>() < 0.25 {
+//!             if state == &BlockState::new("stone", None) && pos.y % 3 == 0 {
 //!                 blocks_to_change.push(*pos);
 //!             }
 //!         }
@@ -33,7 +33,7 @@
 //!     let modified_data = schematic.to_buffer();
 //!
 //!     // Write the new schematic to a new litematic file
-//!     fs::write("path/to/schematic-modified.litematic", modified_data).unwrap();
+//!     fs::write("test/path/to/schematic-modified.litematic", modified_data).unwrap();
 //! }
 //! ```
 

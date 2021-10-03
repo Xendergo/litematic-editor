@@ -45,9 +45,12 @@ impl Schematic {
     ///
     /// ```
     /// use litematic_editor::Schematic;
-    /// use std::fs;
+    /// use std::fs::File;
     ///
-    /// let schematic = Schematic::from_buffer(fs::read("path/to/schematic")?);
+    /// # fn main() -> Result<(), std::io::Error> {
+    /// let schematic = Schematic::from_buffer(&mut File::open("test/path/to/schematic.litematic")?);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn from_buffer(data: &mut impl Read) -> Result<Schematic, LitematicParseError> {
         let parsed_data = io::read_nbt(data, Flavor::GzCompressed)?.0;
@@ -77,11 +80,14 @@ impl Schematic {
     /// use litematic_editor::Schematic;
     /// use std::fs;
     ///
-    /// let schematic = Schematic::new(Some("example schematic"), Some("a cool person"), None, None)
+    /// # fn main() -> Result<(), std::io::Error> {
+    /// let schematic = Schematic::new(Some("example schematic".to_string()), Some("a cool person".to_string()), None, None);
     ///
     /// let buffer = schematic.to_buffer();
     ///
-    /// fs::write("path/to/schematic", buffer)?;
+    /// fs::write("test/path/to/new_schematic.litematic", buffer)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn to_buffer(&self) -> Vec<u8> {
         let mut out = NbtCompound::new();

@@ -23,13 +23,17 @@ impl Volume {
     /// Favors changing the size over changing the position
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// let volume1 = Volume::new(Vector3::new(0, 0, 0), Vector3::new(1, 1, 2));
     /// let volume2 = Volume::new(Vector3::new(0, -1, 0), Vector3::new(1, 2, 1));
     ///
-    /// assert_eq!(volume1.expand_to_fit_volume(volume2), Volume::new(Vector3::new(0, -1, 0), Vector3::new(1, 3, 2)));
+    /// assert_eq!(volume1.expand_to_fit_volume(volume2), Volume::new(Vector3::new(0, -1, 0), Vector3::new(1, 2, 2)));
     /// ```
     pub fn expand_to_fit_volume(self, volume: Volume) -> Volume {
-        self.expand_to_fit(volume.pos1).expand_to_fit(volume.pos2)
+        let volume_positive = volume.make_size_positive();
+
+        self.expand_to_fit(volume_positive.pos1)
+            .expand_to_fit(volume_positive.pos2 - Vector3::new(1, 1, 1))
     }
 
     /// Change the position and size of this volume so that it'll contain the vector given
@@ -39,6 +43,7 @@ impl Volume {
     /// Favors changing the size over changing the position
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// let volume = Volume::new(Vector3::new(0, -1, 0), Vector3::new(1, 2, 1));
     /// let vec = Vector3::new(2, -2, 1);
     ///
@@ -84,6 +89,7 @@ impl Volume {
     /// Get the origin point of this volume
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// assert_eq!(Volume::new(Vector3::new(1, 2, 3), Vector3::new(1, -2, 5)).origin(), Vector3::new(1, 2, 3));
     /// ```
     pub fn origin(self) -> Vector3<i32> {
@@ -93,6 +99,7 @@ impl Volume {
     /// Get the size of this volume
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// assert_eq!(Volume::new(Vector3::new(2, 5, 4), Vector3::new(-2, 5, -9)).size(), Vector3::new(-2, 5, -9));
     /// ```
     pub fn size(self) -> Vector3<i32> {
@@ -102,6 +109,7 @@ impl Volume {
     /// Move this volume to a new position
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// let mut volume = Volume::new(Vector3::new(1, 2, 3), Vector3::new(4, 5, 6));
     ///
     /// volume = volume.move_to(Vector3::new(0, 0, 0));
@@ -119,6 +127,7 @@ impl Volume {
     /// Change the size of this volume
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// let mut volume = Volume::new(Vector3::new(1, 2, 3), Vector3::new(4, 5, 6));
     ///
     /// volume = volume.change_size(Vector3::new(7, 8, 9));
@@ -136,7 +145,9 @@ impl Volume {
     /// Calculate the volume of this volume
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// assert_eq!(Volume::new(Vector3::new(2, 3, 4), Vector3::new(3, 4, 5)).volume(), 60);
+    /// ```
     pub fn volume(self) -> i32 {
         (self.pos2 - self.pos1).volume()
     }
@@ -144,6 +155,7 @@ impl Volume {
     /// Change the origin and size of the volume so it contains the same area but the size has only positive values
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// let volume = Volume::new(Vector3::new(2, 3, 4), Vector3::new(-2, 5, -7));
     ///
     /// assert_eq!(volume.make_size_positive(), Volume::new(Vector3::new(0, 3, -3), Vector3::new(2, 5, 7)))
@@ -169,6 +181,7 @@ impl Volume {
     /// Get an iterator over every block in the volume, increasing the x, then the z, then the y coordinates
     ///
     /// ```
+    /// # use litematic_editor::{Volume, Vector3};
     /// let mut iter = Volume::new(Vector3::new(1, 1, 1), Vector3::new(2, 2, 2)).iter();
     ///
     /// assert_eq!(iter.next(), Some(Vector3::new(1, 1, 1)));
