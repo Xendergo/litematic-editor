@@ -33,9 +33,9 @@ impl Region {
 
     /// Calculates the volume taken up by a region including all the blocks in it
     pub fn volume(&self) -> Volume {
-        self.blocks
-            .keys()
-            .fold(self.volume, |volume, value| volume.expand_to_fit(*value))
+        self.blocks.keys().fold(self.volume, |volume, value| {
+            volume.expand_to_fit(*value + self.volume.origin())
+        })
     }
 
     /// Set a block state in the region

@@ -16,7 +16,7 @@
 //!     for (_, region) in schematic.regions.iter_mut() {
 //!         let mut blocks_to_change = Vec::new();
 //!
-//!         // Iterate over all the blocks in the region and turn every third layer into stone bricks
+//!         // Iterate over all the blocks in the region and mark every stone block in every third layer to be turned into stone bricks
 //!         for (pos, state) in region.blocks().iter() {
 //!             if state == &BlockState::new("stone", None) && pos.y % 3 == 0 {
 //!                 blocks_to_change.push(*pos);
